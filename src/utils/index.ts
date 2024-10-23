@@ -1,5 +1,8 @@
 import * as yup from "yup";
 
+export const INPUT_DEBOUNCE = 500;
+export const CATEGORIES_URL = "https://dummyjson.com/products/categories";
+
 export const damagedPartsOptions = ["roof", "front", "side", "rear"];
 
 export const formInitialValues = {
@@ -19,34 +22,39 @@ export const formInitialValues = {
   ],
 };
 
+const EMAIL_CHECK_URL = "https://dummyjson.com/users/search?q=";
+
 export const formValidationSchema = yup.object().shape({
-  amount: yup.number().min(0).max(300).required(),
-  allocation: yup.number().min(0).max(yup.ref("amount")).required(),
-  damagedParts: yup.array().min(1).required(),
-  category: yup.string().required(),
+  amount: yup.number().min(0).max(300).required().typeError("Must be a number"),
+  allocation: yup
+    .number()
+    .min(0)
+    .max(yup.ref("amount"))
+    .required()
+    .typeError("Must be a number"),
+  damagedParts: yup.array().min(1, "Check at least one").required(),
+  category: yup.string().required("Required"),
   witnesses: yup
     .array()
     .of(
       yup.object().shape({
-        name: yup.string().required(),
+        name: yup.string().required("Required"),
         email: yup
           .string()
-          .email()
-          .required()
+          .email("Must be a valid email")
+          .required("Required")
           .test("email-exists", "Email already in use", async (value) => {
             if (!value) return true;
 
-            const response = await fetch(
-              `https://dummyjson.com/users/search?q=${value}`
-            );
+            const response = await fetch(`${EMAIL_CHECK_URL}${value}`);
             const data = await response.json();
 
             return data.users.length === 0;
           }),
       })
     )
-    .min(1)
-    .max(5),
+    .min(1, "Add at least one")
+    .max(5, "Max 5"),
 });
 
 export type FormType = yup.InferType<typeof formValidationSchema>;
