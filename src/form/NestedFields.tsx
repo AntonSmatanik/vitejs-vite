@@ -4,24 +4,44 @@
  * 2) Reference formuláře NEbude získána skrze Prop input (vyvarovat se "Prop drilling")
  * 3) Získá volby (options) pro pole "kategorie" z externího API: https://dummyjson.com/products/categories jako "value" bude "slug", jako "label" bude "name".
  *
- *
  * V tomto souboru budou definovány pole:
  * allocation - number; Bude disabled pokud není amount (z MainForm) vyplněno. Validace na min=0, max=[zadaná hodnota v amount]
  * category - string; Select input s volbami z API (label=name; value=slug)
  * witnesses - FieldArray - dynamické pole kdy lze tlačítkem přidat a odebrat dalšího svědka; Validace minimálně 1 svědek, max 5 svědků
  * witnesses.name - string; Validace required
- * witnesses.email - string; Validace e-mail a asynchronní validace, že email neexistuje na API https://dummyjson.com/users/search?q=[ZADANÝ EMAIL]  - tato validace by měla mít debounce 500ms
+ * witnesses.email - string; Validace e-mail a asynchronní validace, že email neexistuje na API https://dummyjson.com/users/search?q=[ZADANÝ EMAIL] - tato validace by měla mít debounce 500ms
  */
 
-import { useFormContext } from "react-hook-form";
-import * as yup from "yup";
-import { formSchema } from "../utils";
+import { useEffect, useRef, useState } from "react";
+import { useFieldArray, useFormContext } from "react-hook-form";
+import { CategoryOptions, FormType } from "../utils";
 
 const NestedFields = () => {
+  const timer = useRef<any | null>(null);
+  const [categories, setCategories] = useState<CategoryOptions>([]);
+
   const {
     register,
+    control,
     formState: { errors },
-  } = useFormContext<yup.InferType<typeof formSchema>>();
+    watch,
+    setValue,
+  } = useFormContext<FormType>();
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "witnesses",
+  });
+
+  useEffect(() => {
+    const loadData = async () => {
+      const result = await fetch("https://dummyjson.com/products/categories");
+      const data = await result.json();
+      setCategories(data);
+    };
+
+    loadData();
+  }, []);
 
   return (
     <>
@@ -29,59 +49,112 @@ const NestedFields = () => {
         <label>
           Allocation
           <input
+            className={errors.allocation && "error"}
             type="number"
             {...register("allocation", {
-              min: 0,
-              required: "Allocation is required",
+              disabled: !watch("amount"),
             })}
           />
-          {errors.allocation && (
-            <span className="error">{errors.allocation.message}</span>
-          )}
         </label>
+        {errors.allocation && (
+          <div className="error">{errors.allocation.message}</div>
+        )}
       </div>
-      <div>
-        <label>
-          Category
-          <select {...register("category")}>
-            <option value="">Select category</option>
-            <option value="kitchen-accessories">kitchen-accessories</option>
-            <option value="slug2">name2</option>
-            <option value="slug3">name3</option>
-          </select>
+
+      {categories.length > 0 && (
+        <div>
+          <label>
+            Category
+            <select
+              className={errors.category && "error"}
+              {...register("category")}
+            >
+              <option value="">Select category</option>
+              {categories.map((category) => (
+                <option key={category.slug} value={category.slug}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
           {errors.category && (
-            <span className="error">{errors.category.message}</span>
+            <div className="error">{errors.category.message}</div>
           )}
-        </label>
-      </div>
-      <div>
-        Witnesses
-        <div className="witness">
-          <label className="witness-name">
-            Name
-            <input
-              type="text"
-              {...register("witnesses.0.name", {
-                required: "Name is required",
-              })}
-            />
-            {errors.witnesses?.[0]?.name && (
-              <span className="error">{errors.witnesses[0].name.message}</span>
-            )}
-          </label>
-          <label className="witness-email">
-            Email
-            <input
-              type="email"
-              {...register("witnesses.0.email", {
-                required: "Email is required",
-              })}
-            />
-            {errors.witnesses?.[0]?.email && (
-              <span className="error">{errors.witnesses[0].email.message}</span>
-            )}
-          </label>
         </div>
+      )}
+
+      <div>
+        <fieldset className="withness">
+          <legend>Witnesses</legend>
+
+          {fields.map((field, index) => (
+            <div key={field.id}>
+              <div>
+                <label>
+                  Name
+                  <input
+                    className={errors.witnesses?.[index]?.name && "error"}
+                    id={`witnesses[${index}].name`}
+                    {...register(`witnesses[${index}].name`)}
+                    placeholder="Enter witness name"
+                  />
+                </label>
+
+                {errors.witnesses?.[index]?.name && (
+                  <div className="error">
+                    {errors.witnesses[index]?.name?.message}
+                  </div>
+                )}
+              </div>
+
+              <div>
+                <label>
+                  Email
+                  <input
+                    className={errors.witnesses?.[index]?.email && "error"}
+                    id={`witnesses[${index}].email`}
+                    {...register(`witnesses[${index}].email`, {
+                      onChange: (e) => {
+                        if (timer.current) {
+                          clearTimeout(timer.current);
+                        }
+
+                        timer.current = setTimeout(() => {
+                          setValue(
+                            `witnesses[${index}].email`,
+                            e.target.value,
+                            {
+                              shouldValidate: true,
+                            }
+                          );
+                        }, 500);
+                      },
+                    })}
+                    placeholder="Enter witness email"
+                  />
+                </label>
+
+                {errors.witnesses?.[index]?.email && (
+                  <div className="error">
+                    {errors.witnesses[index]?.email?.message}
+                  </div>
+                )}
+              </div>
+
+              <button type="button" onClick={() => remove(index)}>
+                Remove Witness
+              </button>
+            </div>
+          ))}
+
+          <button type="button" onClick={() => append({ name: "", email: "" })}>
+            Add Witness
+          </button>
+
+          {errors.witnesses && (
+            <div className="error">{errors.witnesses.message}</div>
+          )}
+        </fieldset>
       </div>
     </>
   );

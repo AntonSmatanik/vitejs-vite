@@ -16,58 +16,49 @@
 
 import { yupResolver } from "@hookform/resolvers/yup";
 import { FormProvider, useForm } from "react-hook-form";
-import { damagedPartsOptions, formSchema } from "../utils/index";
+import {
+  damagedPartsOptions,
+  formInitialValues,
+  FormType,
+  formValidationSchema,
+} from "../utils/index";
 import NestedFields from "./NestedFields";
 
-// příklad očekávaného výstupního JSON, předvyplňte tímto objektem formulář
-const initialValues = {
-  amount: 250,
-  allocation: 140,
-  damagedParts: ["side", "rear"],
-  category: "kitchen-accessories",
-  witnesses: [
-    {
-      name: "Marek",
-      email: "marek@email.cz",
-    },
-    {
-      name: "Emily",
-      email: "emily.johnson@x.dummyjson.com",
-    },
-  ],
-};
-
 const MainForm = () => {
-  const methods = useForm({
-    resolver: yupResolver(formSchema),
-    defaultValues: initialValues,
+  const formProps = useForm({
+    resolver: yupResolver(formValidationSchema),
+    defaultValues: formInitialValues,
   });
 
   const {
     register,
     handleSubmit,
     formState: { errors },
-  } = methods;
+  } = formProps;
 
-  const onSubmit = (data: any) => {
+  const onSubmit = (data: FormType) => {
     console.log(data);
   };
 
   return (
-    <FormProvider {...methods}>
+    <FormProvider {...formProps}>
       <form onSubmit={handleSubmit(onSubmit)}>
         <div>
           <label>
             Amount
-            <input type="number" {...register("amount")} />
-            {errors.amount && (
-              <span className="error">{errors.amount.message}</span>
-            )}
+            <input
+              className={errors.amount && "error"}
+              type="number"
+              {...register("amount")}
+            />
           </label>
+          {errors.amount && (
+            <div className="error">{errors.amount.message}</div>
+          )}
         </div>
 
         <div>
-          <fieldset>
+          <fieldset className={errors.damagedParts && "error"}>
             <legend>Damaged parts</legend>
             {damagedPartsOptions.map((part) => (
               <label key={part}>
@@ -79,10 +70,10 @@ const MainForm = () => {
                 {part}
               </label>
             ))}
-            {errors.damagedParts && (
-              <span className="error">{errors.damagedParts.message}</span>
-            )}
           </fieldset>
+          {errors.damagedParts && (
+            <div className="error">{errors.damagedParts.message}</div>
+          )}
         </div>
         <NestedFields />
         <button type="submit">Submit</button>
