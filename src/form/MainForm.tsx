@@ -1,6 +1,6 @@
 /**
- * Zde vytvořte formulář pomocí knihovny react-hook-form.
- * Formulář by měl splňovat:
+ * Zde vytvořte formulář pomocí knihovny react-hook-form. Formulář by měl splňovat:
+ *
  * 1) být validován yup schématem
  * 2) formulář obsahovat pole "NestedFields" z jiného souboru
  * 3) být plně TS typovaný
@@ -9,6 +9,7 @@
  * 6) mít "Submit" tlačítko, po jeho stisku se vylogují data z formuláře:  "console.log(formData)"
  *
  * V tomto souboru budou definovány pole:
+ *
  * amount - number; Validace min=0, max=300
  * damagedParts - string[] formou multi-checkboxu s volbami "roof", "front", "side", "rear"
  * vykresleny pole z form/NestedFields

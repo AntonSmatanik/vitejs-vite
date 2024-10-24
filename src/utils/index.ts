@@ -1,6 +1,5 @@
 import * as yup from "yup";
 
-export const INPUT_DEBOUNCE = 500;
 export const CATEGORIES_URL = "https://dummyjson.com/products/categories";
 
 export const damagedPartsOptions = ["roof", "front", "side", "rear"];
@@ -23,6 +22,17 @@ export const formInitialValues = {
 };
 
 const EMAIL_CHECK_URL = "https://dummyjson.com/users/search?q=";
+const EMAIL_INPUT_DEBOUNCE = 500;
+
+const emailExists = async (value: string): Promise<boolean> => {
+  const response = await fetch(`${EMAIL_CHECK_URL}${value}`);
+  const data = await response.json();
+
+  return data.users.length === 0;
+};
+
+let validatedEmails = new Map<string, boolean>();
+let timeouts = new Map<string, number>();
 
 export const formValidationSchema = yup.object().shape({
   amount: yup.number().min(0).max(300).required().typeError("Must be a number"),
@@ -41,16 +51,40 @@ export const formValidationSchema = yup.object().shape({
         name: yup.string().required("Required"),
         email: yup
           .string()
-          .email("Must be a valid email")
           .required("Required")
-          .test("email-exists", "Email already in use", async (value) => {
-            if (!value) return true;
+          .email("Must be a valid email")
+          .test(
+            "email-exists",
+            "Email already in use",
+            async (value, { path }) => {
+              //  preventing to run the validation again if the email has been already validated
+              if (validatedEmails.has(value)) {
+                return validatedEmails.get(value);
+              }
 
-            const response = await fetch(`${EMAIL_CHECK_URL}${value}`);
-            const data = await response.json();
+              //  preventing to run the validation if not needed, because yup does not support validation chain order
+              await yup.string().required().validate(value);
+              await yup.string().email().validate(value);
 
-            return data.users.length === 0;
-          }),
+              //  debouncing the email validation
+              return new Promise((resolve) => {
+                let timeoutId = timeouts.get(path);
+
+                if (timeoutId) {
+                  clearTimeout(timeoutId);
+                  timeouts.delete(path);
+                }
+
+                timeoutId = setTimeout(async () => {
+                  const exists = await emailExists(value);
+                  validatedEmails.set(value, exists);
+                  resolve(exists);
+                }, EMAIL_INPUT_DEBOUNCE);
+
+                timeouts.set(path, timeoutId);
+              });
+            }
+          ),
       })
     )
     .min(1, "Add at least one")
